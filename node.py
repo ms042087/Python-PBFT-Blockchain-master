@@ -485,6 +485,7 @@ class Blockchain:
 
 class PBFTHandler:
     NODE_COUNT = 'node-count'
+    JOIN = 'join'
     REQUEST = 'request'
     PREPREPARE = 'preprepare'
     PREPARE = 'prepare'
@@ -503,7 +504,7 @@ class PBFTHandler:
 
 
         self._nodes = conf['nodes'] # This should change to read the topology in blockchain. After a new node joined the network, this should trigger other node to update.
-        print(self._nodes)
+        #print(self._nodes)
         self._node_cnt = len(self._nodes)
         self._index = index # This should change to max number in topology + 1
         # Number of faults tolerant.
@@ -563,23 +564,60 @@ class PBFTHandler:
 
 	# If index >0, ask node to get the number of node in blockchain first
         if index>0:
-            result = self.send_nodes_count_request()
-            print(result)
+            # Step 1: Get the number of nodes in blockchain
+            node_count = requests.post("http://localhost:30000/node-count", {}).json()['node_count']
+            self._node_cnt = node_count
+            # Step 2: Join the blockchain
+            requests.post("http://localhost:30000/join", {"id":node_count})
+
+#            task = asyncio.get_event_loop().create_task(self._session.post("http://localhost:30000/join", json={"id":node_count}))
+ #           print(task)
+  #          asyncio._get_running_loop().run_until_complete(task)
+   #         task.result()
+
 
     def _read_topology(self):
         topology = self._blockchain.last_block_topo()
-        print("get Topo"+str(topo))
+        print("get Topo"+str(topology))
         return topology
 
-    def return_nodes_count(self):
-        print("RNC")
-        return "OK"
+    async def return_nodes_count(self, request):
+        return web.json_response({"node_count":self._node_cnt})
 
     def send_nodes_count_request(self):
         result = self._post_to_node_0(PBFTHandler.NODE_COUNT, {})
         return result.text
 
-    def _join_blockchain(self):
+    async def handle_join_blockchain(self, request):
+        json_data = await request.json()
+        print("OK")
+        await self._session.post("http://localhost:30000/request", json=json_data)
+        await asyncio.wait_for(self._is_request_succeed.wait(), self._resend_interval)
+
+    async def join_blockchain(self,node_id):
+        is_sent = False
+        self._is_request_succeed = asyncio.Event()
+        json_data = {
+            'id': node_id,
+            'timestamp': time.time(),
+            'data': str(node_id)+" is joining the blockchain"
+        }
+        while 1:
+            try:
+                print("trying")
+                self._status = Status(self._f)
+                await self._session.post("http://localhost:30000/join", json=json_data)
+                await asyncio.wait_for(self._is_request_succeed.wait(), self._resend_interval)
+            except:
+                json_data['timestamp'] = time.time()
+                self._status = Status(self._f)
+                self._is_request_succeed.clear()
+                self._log.info("--->client %d's JOIN message sent fail.", self._client_id)
+            else:
+                self._log.info("--->client %d's JOIN message sent successfully.", self._client_id)
+                is_sent = True
+            if is_sent:
+                break
         return True
 
     def _update_self_info(self):
@@ -655,9 +693,9 @@ class PBFTHandler:
                     self._log.error(e)
                     pass
 
-    def _post_to_node_0(self, command, json_data):
-        _ = requests.post("http://localhost:30000/node-count", json=json_data)
-        return _
+#    def _post_to_node_0(self, command, json_data):
+#        _ = requests.post("http://localhost:30000/node-count", json=json_data)
+#        return _
 
 
     def _legal_slot(self, slot):
@@ -718,6 +756,7 @@ class PBFTHandler:
 
         if not self._is_leader:
             if self._leader != None:
+                print("Redirect to"+str(self._leader))
                 raise web.HTTPTemporaryRedirect(self.make_url(
                     self._nodes[self._leader], PBFTHandler.REQUEST))
             else:
@@ -950,8 +989,9 @@ class PBFTHandler:
                     self._log.error("received invalid timestamp. replacing with current timestamp")
                     timestamp = time.asctime( time.localtime( time.time()) )
                 #####################################################################################
-                topo = self._blockchain.last_block_topo()
-                topo = topo.append(self._index) if topo!=None else [self._index]
+                #topo = self._blockchain.last_block_topo()
+                #topo = topo.append(self._index) if topo!=None else [self._index]
+                topo = calculuate_topology(self._node_cnt)#self._node_cnt
                 print("NEW TOPOLOGY: ", topo)
                 new_block=  Block(self._blockchain.length, commit_decisions, topo, timestamp , self._blockchain.last_block_hash())
                 self._blockchain.add_block(new_block)
@@ -1424,6 +1464,7 @@ def main():
     app.add_routes([
         # Add Route to get maximum number of nodes in blockchain from other nodes
         web.post('/' + PBFTHandler.NODE_COUNT, pbft.return_nodes_count),
+        web.post('/' + PBFTHandler.JOIN, pbft.handle_join_blockchain),
         web.post('/' + PBFTHandler.REQUEST, pbft.get_request),
         web.post('/' + PBFTHandler.PREPREPARE, pbft.preprepare),
         web.post('/' + PBFTHandler.PREPARE, pbft.prepare),

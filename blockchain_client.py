@@ -10,7 +10,7 @@ from aiohttp import web
 from random import random
 import hashlib
 import traceback
-
+from random import randint
 
 class View:
     def __init__(self, view_number, num_nodes):
@@ -213,7 +213,7 @@ class Client:
     async def send_request(self, message, i=-1):
         accumulate_failure = 0
         is_sent = False
-        dest_ind = 0 # Send to node 0
+        dest_ind = randint(0, 16) # Send to node N
         self._is_request_succeed = asyncio.Event()
         json_data = {
             'id': (self._client_id, i),

@@ -138,9 +138,10 @@ def addNode(nodeNum, maxNum):
 #for i in range (1,17):
 #	addNode(1, i)
 def calculuate_topology(n):
+	global tree
 	for i in range (1,n):
 		result=addNode(1, i)
+	tree = tnode(0)
 	return result
-
 
 
