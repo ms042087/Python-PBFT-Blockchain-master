@@ -213,13 +213,13 @@ class Client:
     async def send_request(self, message, i=-1):
         accumulate_failure = 0
         is_sent = False
-        dest_ind = randint(0, 16) # Send to node N
+        dest_ind = randint(0, 3) # Send to node N
         self._is_request_succeed = asyncio.Event()
         json_data = {
             'id': (self._client_id, i),
             'client_url': self._client_url + "/" + Client.REPLY, # For return
             'timestamp': time.time(),
-            'data': str(self._client_id)+" sending data packet "+str(message)+" to Node" + str(dest_ind)
+            'data': "Client "+str(self._client_id)+" sending data packet "+str(message)+" to Node " + str(dest_ind)
         }
         while 1:
             try:
@@ -235,7 +235,7 @@ class Client:
                 self._log.info("--->client %d's message %d sent fail.", self._client_id, i)
                 accumulate_failure += 1
                 if accumulate_failure == self._retry_times:
-                    #await self.request_view_change() # If send fail, request review change
+                    await self.request_view_change() # If send fail, request review change
                     # Sleep 0 - 1 second for view change
                     await asyncio.sleep(random())
                     accumulate_failure = 0

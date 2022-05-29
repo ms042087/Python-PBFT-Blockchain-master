@@ -123,12 +123,12 @@ class Status:
         '''
 
         # The key need to include hash(proposal) in case get different 
-        # preposals from BFT nodes. Need sort key in json.dumps to make 
+        # proposals from BFT nodes. Need sort key in json.dumps to make 
         # sure getting the same string. Use hashlib so that we got same 
         # hash everytime.
         hash_object = hashlib.sha256(json.dumps(proposal, sort_keys=True).encode())
         key = (view.get_view(), hash_object.digest())
-        print("got key", key)
+        #print("got key", key)
         if msg_type == Status.PREPARE:
             if key not in self.prepare_msgs:
                 self.prepare_msgs[key] = self.SequenceElement(proposal)
@@ -137,7 +137,7 @@ class Status:
             if key not in self.commit_msgs:
                 print("NOT IN")
                 self.commit_msgs[key] = self.SequenceElement(proposal)
-            print(self.commit_msgs[key].from_nodes)
+            print("Node",self.commit_msgs[key].from_nodes)
             self.commit_msgs[key].from_nodes.add(from_node)
 
     def _check_majority(self, msg_type):
@@ -419,7 +419,7 @@ class ViewChangeVotes:
             self._node_index, json_data['view_number'])
 
         for slot in prepare_certificates:
-            prepare_certificate = Status.Certificate(View(0, self._num_total_nodes))
+            prepare_certificate = Status.Certificate(View(0, 0,self._num_total_nodes))
             prepare_certificate.dumps_from_dict(prepare_certificates[slot])
             # Keep the prepare certificate who has the largest view number
             if slot not in self.prepare_certificate_by_slot or (
@@ -533,7 +533,8 @@ class PBFTHandler:
             self._is_leader = True
         else:
             self._is_leader = False
-        print(self._index,self._is_leader)
+
+        #print(self._index,self._is_leader)
         # Network simulation
         self._loss_rate = conf['loss%'] / 100
 
@@ -700,16 +701,17 @@ class PBFTHandler:
             timeout = aiohttp.ClientTimeout(self._network_timeout)
             self._session = aiohttp.ClientSession(timeout=timeout)
         # Get the nodes in the same sub-Byzantine Group
-        print(self._index,self._nodes)
+        #print (self._index,len(self._nodes))
         nodes = calculate_other_nodes_in_sub_byzantine_group(self._index,len(self._nodes))
-        print("in pbft._post",nodes)
+        #print(nodes)
+        print("Node ",self._index," will send ",command," to Node ",nodes)
         for i in nodes:
             if random() > self._loss_rate:
                 self._log.debug("make request to %d, %s", i, command)
-                print(self._index," sending ",command," to Node ", i)
+                print("Node ",self._index," is sending ",command," to Node ", i)
                 try:
                     url = self.make_url({'host':'localhost','port':30000+i},command)
-                    print(url,json_data)
+                    print("URL is: ",url,"\nData: ",json_data)
                     _ = await self._session.post(url, json=json_data)
                 except Exception as e:
                     self._log.error(e)
@@ -784,7 +786,7 @@ class PBFTHandler:
             },
             'type': 'preprepare'
         }
-        print(self._index," ready to send preprepare")
+        print("Node ",self._index," is ready to send preprepare")
         await self._post(self._nodes, PBFTHandler.PREPARE, preprepare_msg)
 
     async def get_request(self, request):
@@ -795,9 +797,9 @@ class PBFTHandler:
         self._log.info("---> %d: on request", self._index)
 
         if not self._is_leader:
-            print(self._index," is not a leader")
+            print("Node ",self._index," is not a leader")
             if self._leader != None:
-                print("Redirect to"+str(self._leader))
+                print("Redirect the Request to Node "+str(self._leader))
                 raise web.HTTPTemporaryRedirect(self.make_url(
                     self._nodes[self._leader], PBFTHandler.REQUEST))
             else:
@@ -933,15 +935,15 @@ class PBFTHandler:
         json_data = await request.json()
         self._log.info("---> Node %d: on reply", self._index)
         print("\t--->node "+str(self._index)+": on reply ")
-
+        #print(self._follow_view.get_view())
         if json_data['view'] < self._follow_view.get_view():
             # when receive message with view < follow_view, do nothing
+            print("ret")
             return web.Response()
 
-
-        self._log.info("---> Node %d: receive commit msg from Node %d", 
-            self._index, json_data['index'])
-        print("proposal",json_data['proposal'])
+        self._log.info("---> Node %d: receive commit msg from Node %d", self._index, json_data['index'])
+        print("PROPOSAL")
+        print(json_data['proposal'])
         for slot in json_data['proposal']:
             if not self._legal_slot(slot):
                 continue
@@ -949,9 +951,7 @@ class PBFTHandler:
             if slot not in self._status_by_slot:
                 self._status_by_slot[slot] = Status(self._f)
             status = self._status_by_slot[slot]
-            print("before view")
             view = View(json_data['view'], self._index,self._node_cnt)
-            print("after view")
             status._update_sequence(json_data['type'], 
                 view, json_data['proposal'][slot], json_data['index'])
 
@@ -1120,11 +1120,11 @@ class PBFTHandler:
             certificate = json_data['commit_certificates'][slot]
             if slot not in self._status_by_slot:
                 self._status_by_slot[slot] = Status(self._f)
-                commit_certificate = Status.Certificate(View(0, self._node_cnt))
+                commit_certificate = Status.Certificate(View(0, 0,self._node_cnt))
                 commit_certificate.dumps_from_dict(certificate)
                 self._status_by_slot[slot].commit_certificate =  commit_certificate
             elif not self._status_by_slot[slot].commit_certificate:
-                commit_certificate = Status.Certificate(View(0, self._node_cnt))
+                commit_certificate = Status.Certificate(View(0,0, self._node_cnt))
                 commit_certificate.dumps_from_dict(certificate)
                 self._status_by_slot[slot].commit_certificate =  commit_certificate
 

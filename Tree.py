@@ -192,3 +192,5 @@ def calculate_other_nodes_in_sub_byzantine_group(n,max_node):
 	if n==0 and 0 in child_nodes:
 		child_nodes.remove(0)
 	return child_nodes
+
+#print(calculate_other_nodes_in_sub_byzantine_group(0,4))
