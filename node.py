@@ -19,11 +19,16 @@ from Tree import *
 
 VIEW_SET_INTERVAL = 10
 
+
 class View:
-    def __init__(self, view_number, num_nodes):
-        self._view_number = view_number
-        self._num_nodes = num_nodes
+    def __init__(self, view_number, id,num_nodes):
+        self._view_number = view_number # To check what is view number
+        self._num_nodes = num_nodes 
+        #self._num_nodes = calculuate_view_node_count(id,num_nodes)
+
         self._leader = view_number % num_nodes
+        #self._leader = calculuate_parent(id,num_nodes)
+
         # Minimum interval to set the view number
         self._min_set_interval = VIEW_SET_INTERVAL
         self._last_set_time = time.time()
@@ -47,7 +52,6 @@ class View:
 
     def get_leader(self):
         return self._leader
-
 class Status:
     '''
     Record the state for every slot.
@@ -124,18 +128,21 @@ class Status:
         # hash everytime.
         hash_object = hashlib.sha256(json.dumps(proposal, sort_keys=True).encode())
         key = (view.get_view(), hash_object.digest())
+        print("got key", key)
         if msg_type == Status.PREPARE:
             if key not in self.prepare_msgs:
                 self.prepare_msgs[key] = self.SequenceElement(proposal)
             self.prepare_msgs[key].from_nodes.add(from_node)
         elif msg_type == Status.COMMIT:
             if key not in self.commit_msgs:
+                print("NOT IN")
                 self.commit_msgs[key] = self.SequenceElement(proposal)
+            print(self.commit_msgs[key].from_nodes)
             self.commit_msgs[key].from_nodes.add(from_node)
 
     def _check_majority(self, msg_type):
         '''
-        Check if receive more than 2f + 1 given type message in the same view.
+        Check if receive more than 2f + 1 given type message in the same view. <--- update to number of required nodes in sub-Byzantine Group
         input:
             msg_type: self.PREPARE or self.COMMIT
         '''
@@ -148,9 +155,11 @@ class Status:
             return False
 
         if msg_type == Status.COMMIT:
+            print(self.commit_msgs,"AA",self.f)
             if self.commit_certificate:
                 return True
             for key in self.commit_msgs:
+                print(self.commit_msgs[key].from_nodes)
                 if len(self.commit_msgs[key].from_nodes) >= 2 * self.f + 1:
                     return True
             return False 
@@ -260,7 +269,7 @@ class CheckPoint:
 
     async def _post(self, nodes, command, json_data):
         '''
-        Broadcast json_data to all node in nodes with given command.
+        Broadcast json_data to all node in nodes with given command. <--------TODO: Change to nodes in the same sub-Byzantine Group
         input:
             nodes: list of nodes
             command: action
@@ -269,6 +278,9 @@ class CheckPoint:
         if not self._session:
             timeout = aiohttp.ClientTimeout(self._network_timeout)
             self._session = aiohttp.ClientSession(timeout=timeout)
+
+        # Get the nodes in the same sub-Byzantine Group
+        nodes = calculate_other_nodes_in_sub_byzantine_group(self._node_index,self._nodes)
         for i, node in enumerate(nodes):
             if random() > self._loss_rate:
 #                self._log.debug("make request to %d, %s", i, command)
@@ -332,7 +344,7 @@ class CheckPoint:
             self.checkpoint = json.loads(json_data['ckpt'])
         
 
-    async def receive_sync(sync_ckpt):
+    async def receive_sync(self,sync_ckpt):
         '''
         Trigger when recieve checkpoint synchronization messages.
         input: 
@@ -462,7 +474,7 @@ class Blockchain:
 
     def last_block_topo(self):
         tail = self.chain[-1]
-        print("Last Block Topo",tail.topology) 
+        #print("Last Block Topo",tail.topology) 
         return tail.topology
 
     def update_commit_counter(self):
@@ -491,12 +503,9 @@ class PBFTHandler:
     PREPARE = 'prepare'
     COMMIT = 'commit'
     REPLY = 'reply'
-
     NO_OP = 'NOP'
-
     RECEIVE_SYNC = 'receive_sync'
     RECEIVE_CKPT_VOTE = 'receive_ckpt_vote'
-
     VIEW_CHANGE_REQUEST = 'view_change_request'
     VIEW_CHANGE_VOTE = "view_change_vote"
 
@@ -511,7 +520,7 @@ class PBFTHandler:
         self._f = (self._node_cnt - 1) // 3
 
         # leader
-        self._view = View(0, self._node_cnt)
+        self._view = View(0, index,self._node_cnt)
         self._next_propose_slot = 0
 
         self._blockchain =  Blockchain()
@@ -524,7 +533,7 @@ class PBFTHandler:
             self._is_leader = True
         else:
             self._is_leader = False
-
+        print(self._index,self._is_leader)
         # Network simulation
         self._loss_rate = conf['loss%'] / 100
 
@@ -546,7 +555,7 @@ class PBFTHandler:
         self._leader = 0
 
         # The largest view either promised or accepted
-        self._follow_view = View(0, self._node_cnt)
+        self._follow_view = View(0, index,self._node_cnt)
         # Restore the votes number and information for each view number
         self._view_change_votes_by_view_number = {}
         
@@ -568,7 +577,12 @@ class PBFTHandler:
             node_count = requests.post("http://localhost:30000/node-count", {}).json()['node_count']
             self._node_cnt = node_count
             # Step 2: Join the blockchain
-            requests.post("http://localhost:30000/join", {"id":node_count})
+            #requests.post("http://localhost:30000/join", {"id":node_count}) # not work, todo
+            # Step 3: Update View and CheckPoint
+            self._view = View(0, self._index,self._node_cnt)
+            #self._ckpt = CheckPoint(self._checkpoint_interval, self._nodes, 
+            #self._f, self._index, self._loss_rate, self._network_timeout)
+
 
 #            task = asyncio.get_event_loop().create_task(self._session.post("http://localhost:30000/join", json={"id":node_count}))
  #           print(task)
@@ -590,7 +604,6 @@ class PBFTHandler:
 
     async def handle_join_blockchain(self, request):
         json_data = await request.json()
-        print("OK")
         await self._session.post("http://localhost:30000/request", json=json_data)
         await asyncio.wait_for(self._is_request_succeed.wait(), self._resend_interval)
 
@@ -673,7 +686,36 @@ class PBFTHandler:
             await asyncio.sleep(self._network_timeout)
         return resp
 
+    # POST function for general purpose
     async def _post(self, nodes, command, json_data):
+        '''
+        Broadcast json_data to all node in nodes with given command.
+        input:
+            nodes: list of nodes
+            command: action
+            json_data: Data in json format.
+        '''
+        
+        if not self._session:
+            timeout = aiohttp.ClientTimeout(self._network_timeout)
+            self._session = aiohttp.ClientSession(timeout=timeout)
+        # Get the nodes in the same sub-Byzantine Group
+        print(self._index,self._nodes)
+        nodes = calculate_other_nodes_in_sub_byzantine_group(self._index,len(self._nodes))
+        print("in pbft._post",nodes)
+        for i in nodes:
+            if random() > self._loss_rate:
+                self._log.debug("make request to %d, %s", i, command)
+                print(self._index," sending ",command," to Node ", i)
+                try:
+                    url = self.make_url({'host':'localhost','port':30000+i},command)
+                    print(url,json_data)
+                    _ = await self._session.post(url, json=json_data)
+                except Exception as e:
+                    self._log.error(e)
+                    pass
+    # POST function for synchronization
+    async def _post_sync(self, nodes, command, json_data):
         '''
         Broadcast json_data to all node in nodes with given command.
         input:
@@ -686,16 +728,13 @@ class PBFTHandler:
             self._session = aiohttp.ClientSession(timeout=timeout)
         for i, node in enumerate(nodes):
             if random() > self._loss_rate:
-#                self._log.debug("make request to %d, %s", i, command)
+                self._log.debug("make request to %d, %s", i, command)
                 try:
                     _ = await self._session.post(self.make_url(node, command), json=json_data)
                 except Exception as e:
                     self._log.error(e)
                     pass
 
-#    def _post_to_node_0(self, command, json_data):
-#        _ = requests.post("http://localhost:30000/node-count", json=json_data)
-#        return _
 
 
     def _legal_slot(self, slot):
@@ -724,8 +763,9 @@ class PBFTHandler:
                 }
 
         '''
+        self._log.info("---> %d: received request from client", self._index)
+        print(self._index, " received request from client")
 
-        
         this_slot = str(self._next_propose_slot)
         self._next_propose_slot = int(this_slot) + 1
 
@@ -744,7 +784,7 @@ class PBFTHandler:
             },
             'type': 'preprepare'
         }
-        
+        print(self._index," ready to send preprepare")
         await self._post(self._nodes, PBFTHandler.PREPARE, preprepare_msg)
 
     async def get_request(self, request):
@@ -755,6 +795,7 @@ class PBFTHandler:
         self._log.info("---> %d: on request", self._index)
 
         if not self._is_leader:
+            print(self._index," is not a leader")
             if self._leader != None:
                 print("Redirect to"+str(self._leader))
                 raise web.HTTPTemporaryRedirect(self.make_url(
@@ -762,9 +803,8 @@ class PBFTHandler:
             else:
                 raise web.HTTPServiceUnavailable()
         else:
-
             json_data = await request.json()
-
+            print(str(self._index)+" received request message")
             await self.preprepare(json_data)
             return web.Response()
 
@@ -786,7 +826,7 @@ class PBFTHandler:
 
         '''
         json_data = await request.json()
-
+        print(self._index, " received prepare from leader node ", json_data['leader'])
         if json_data['view'] < self._follow_view.get_view():
             # when receive message with view < follow_view, do nothing
             return web.Response()
@@ -811,6 +851,7 @@ class PBFTHandler:
                 },
                 'type': Status.PREPARE
             }
+            print(self._index," ready to send prepare")
             await self._post(self._nodes, PBFTHandler.COMMIT, prepare_msg)
         return web.Response()
 
@@ -851,8 +892,8 @@ class PBFTHandler:
                 self._status_by_slot[slot] = Status(self._f)
             status = self._status_by_slot[slot]
 
-            view = View(json_data['view'], self._node_cnt)
-
+            view = View(json_data['view'], self._index,self._node_cnt)
+            # This stage updates prepare seq.
             status._update_sequence(json_data['type'], 
                 view, json_data['proposal'][slot], json_data['index'])
 
@@ -868,6 +909,7 @@ class PBFTHandler:
                     },
                     'type': Status.COMMIT
                 }
+                print(self._index," ready to send commit")
                 await self._post(self._nodes, PBFTHandler.REPLY, commit_msg)
         return web.Response()
 
@@ -890,7 +932,7 @@ class PBFTHandler:
         
         json_data = await request.json()
         self._log.info("---> Node %d: on reply", self._index)
-        # print("\t--->node "+str(self._index)+": on reply ")
+        print("\t--->node "+str(self._index)+": on reply ")
 
         if json_data['view'] < self._follow_view.get_view():
             # when receive message with view < follow_view, do nothing
@@ -899,7 +941,7 @@ class PBFTHandler:
 
         self._log.info("---> Node %d: receive commit msg from Node %d", 
             self._index, json_data['index'])
-
+        print("proposal",json_data['proposal'])
         for slot in json_data['proposal']:
             if not self._legal_slot(slot):
                 continue
@@ -907,23 +949,24 @@ class PBFTHandler:
             if slot not in self._status_by_slot:
                 self._status_by_slot[slot] = Status(self._f)
             status = self._status_by_slot[slot]
-
-            view = View(json_data['view'], self._node_cnt)
-
+            print("before view")
+            view = View(json_data['view'], self._index,self._node_cnt)
+            print("after view")
             status._update_sequence(json_data['type'], 
                 view, json_data['proposal'][slot], json_data['index'])
 
-            # Commit only when no commit certificate and got more than 2f + 1
-            # commit message.
+            # Commit only when no commit certificate and got more than 2f + 1 commit message.
+            print("1",status.commit_certificate,status._check_majority(json_data['type']))
             if not status.commit_certificate and status._check_majority(json_data['type']):
+                print("2")
                 status.commit_certificate = Status.Certificate(view, 
                     json_data['proposal'][slot])
 
                 self._log.debug("Add commit certifiacte to slot %d", int(slot))
-                
+                print("3")
                 # Reply only once and only when no bubble ahead
                 if self._last_commit_slot == int(slot) - 1 and not status.is_committed:
-
+                    print("added")
                     reply_msg = {
                         'index': self._index,
                         'view': json_data['view'],
@@ -941,7 +984,7 @@ class PBFTHandler:
                             "In addition, current checkpoint's next_slot is: %d", 
                             self._index, self._last_commit_slot, self._ckpt.next_slot)
 
-
+                    print("be4 commit")
                     # Commit!
                     await self._commit_action()
                     try:
@@ -954,7 +997,7 @@ class PBFTHandler:
                     else:
                         self._log.info("Node %d reply to %s successfully!!", 
                             self._index, json_data['proposal'][slot]['client_url'])
-                
+            print("4")    
         return web.Response()
 
     def get_commit_decisions(self):
@@ -974,9 +1017,6 @@ class PBFTHandler:
             commit_decisions.append((str(proposal['id']), proposal['data']))
 
         try:
-            # if self._index == 3:
-                # print('Node 3 is leader : ', str(self._is_leader))
-            # print('Node '+str(self._index)+' is leader : ', str(self._is_leader))
             
             if not self.committed_to_blockchain and len(commit_decisions) == self._checkpoint_interval:
                 self.committed_to_blockchain = True
@@ -992,7 +1032,7 @@ class PBFTHandler:
                 #topo = self._blockchain.last_block_topo()
                 #topo = topo.append(self._index) if topo!=None else [self._index]
                 topo = calculuate_topology(self._node_cnt)#self._node_cnt
-                print("NEW TOPOLOGY: ", topo)
+                #print("NEW TOPOLOGY: ", topo)
                 new_block=  Block(self._blockchain.length, commit_decisions, topo, timestamp , self._blockchain.last_block_hash())
                 self._blockchain.add_block(new_block)
                 #####################################################################################
@@ -1027,17 +1067,6 @@ class PBFTHandler:
             for i in range(self._blockchain.commit_counter, self._blockchain.length):
                 f.write(str(self._blockchain.chain[i].get_json())+'\n------------\n')
                 self._blockchain.update_commit_counter()
-        # except Exception as e:
-        #     traceback.print_exc()
-        #     print('for i = ' +str(i))
-        #     print(e)
-
-        # pad = ''
-        # for k in range(self._index): 
-        #     pad += '\t'
-        # print(pad+'node :' + str(self._index) +' : '+str(self._blockchain.length))
-
-        
 
     async def receive_ckpt_vote(self, request):
         '''
@@ -1045,16 +1074,6 @@ class PBFTHandler:
         '''
         self._log.info("---> Node %d: receive checkpoint vote.", self._index)
         json_data = await request.json()
-
-        # print ()
-        # print ()
-        # print ('json_data')
-        # print(json_data)
-        # print ()
-        # print ()
-        # # print ('ckpt')
-        # # print (ckpt)
-        # print ()
 
         await self._ckpt.receive_vote(json_data)
         return web.Response()
@@ -1072,32 +1091,20 @@ class PBFTHandler:
                     (Elements are commit_certificate.to_dict())
             }
         '''
-
-        
-
-
-
-
         self._log.info("---> %d: on receive sync stage.", self._index)
+        #print(self._index," on receive sync stage")
         json_data = await request.json()
-
-
+        #print(json_data)
         try:
-            # print(len(self._status_by_slot))
-            # print(self._ckpt.next_slot, self._last_commit_slot + 1)
-            # # print(len(json_data['checkpoint']))
-            # print('node :' + str(self._index) +' > '+str(self._blockchain.commit_counter)+' : '+str(self._blockchain.length))
-            # print()
-            # print()
+            #print(len(self._status_by_slot))
+            #print(self._ckpt.next_slot, self._last_commit_slot + 1)
+            #print(len(json_data['checkpoint']))
+            #print('node :' + str(self._index) +' > '+str(self._blockchain.commit_counter)+' : '+str(self._blockchain.length))
             self.committed_to_blockchain = False
         except Exception as e:
             traceback.print_exc()
             print('for i = ' +str(i))
             print(e)
-
-
-
-
 
         self._ckpt.update_checkpoint(json_data['checkpoint'])
         self._last_commit_slot = max(self._last_commit_slot, self._ckpt.next_slot - 1)
@@ -1169,7 +1176,7 @@ class PBFTHandler:
                 'checkpoint': self._ckpt.get_ckpt_info(),
                 'commit_certificates':commit_certificates
             }
-            await self._post(self._nodes, PBFTHandler.RECEIVE_SYNC, json_data)
+            await self._post_sync(self._nodes, PBFTHandler.RECEIVE_SYNC, json_data)
 
     async def get_prepare_certificates(self):
         '''
@@ -1191,7 +1198,7 @@ class PBFTHandler:
 
     async def _post_view_change_vote(self):
         '''
-        Broadcast the view change vote messages to all the nodes. 
+        Broadcast the view change vote messages to all the nodes.  <-- Update to nodes in sub-Byzantine Group
         View change vote messages contain current node index, 
         proposed new view number, checkpoint info, and all the 
         prepare certificate between valid slots.
@@ -1350,7 +1357,7 @@ class PBFTHandler:
         for slot in delete_slots:
             del self._status_by_slot[slot]
 
-        # Garbage collection for cjeckpoint.
+        # Garbage collection for checkpoint.
         await self._ckpt.garbage_collection()
 
 
@@ -1450,10 +1457,10 @@ def main():
     host = "localhost"
     port = 30000+args.index
 
-    print("Node"+str(args.index)+": Before Creating PBFT Handler")
+    #print("Node"+str(args.index)+": Before Creating PBFT Handler")
     # NEED TO ADD JOIN REQUEST
     pbft = PBFTHandler(args.index, conf) 
-    print("Node"+str(args.index)+": After Creating PBFT Handler")
+    #print("Node"+str(args.index)+": After Creating PBFT Handler")
     asyncio.ensure_future(pbft.synchronize())
     asyncio.ensure_future(pbft.garbage_collection())
 

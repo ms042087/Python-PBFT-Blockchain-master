@@ -17,6 +17,7 @@ def printNTree(x,flag,depth,isLast,result,prev):
 	
 	# Loop to print the depths of the
 	# current node
+	'''
 	for i in range(1, depth):
 #		print("ENTER")
 		# Condition when the depth
@@ -28,20 +29,20 @@ def printNTree(x,flag,depth,isLast,result,prev):
 		# the blank spaces
 		else:
 			print(" ", "", "", "", end = "")
-	
+	'''
 	# Condition when the current
 	# node is the root node
 	if depth == 0:
 #		print("DEPTH0")
 		result.append((x.n,0,0))
-		print(x.n)
+		#print(x.n)
 	
 	# Condition when the node is
 	# the last node of
 	# the exploring depth
 	elif isLast:
 #		print("ISLAST")
-		print("+---", x.n)
+		###print("+---", x.n)
 		result.append((x.n,prev,depth))
 		
 		# No more childrens turn it
@@ -50,7 +51,7 @@ def printNTree(x,flag,depth,isLast,result,prev):
 	else:
 #		print("ELSE")
 #		print(flag, depth)
-		print("+---", x.n)
+		###print("+---", x.n)
 		
 		result.append((x.n,prev,depth))
 
@@ -144,4 +145,50 @@ def calculuate_topology(n):
 	tree = tnode(0)
 	return result
 
+def calculuate_parent(n,max_node):
+	'''
+	calculate_parent(10,17)
+	=> 2
+	'''
+	global tree
+	for i in range (1,max_node):
+		topo=addNode(1, i)
+	tree = tnode(0)
+	result = 0
+	for i in topo:
+		if i[0]==n:
+			result=i[1]
+	return result
 
+def calculuate_child(n,max_node):
+	'''
+	calculate_child(2,17)
+	=> [8,9,10]
+	'''
+	global tree
+	for i in range (1,max_node):
+		topo=addNode(1, i)
+	tree = tnode(0)
+	result = []
+	for i in topo:
+		if i[1]==n:
+			result.append(i[0])
+	return result
+
+def calculuate_view_node_count(n,max_node):
+
+	parent_node = calculuate_parent(n,max_node)
+	child_nodes = calculuate_child(parent_node,max_node)
+	number_of_child = len(child_nodes) if n<5 else len(child_nodes)+1
+	return number_of_child
+
+def calculate_other_nodes_in_sub_byzantine_group(n,max_node):
+	parent_node = calculuate_parent(n,max_node)
+	child_nodes = calculuate_child(parent_node,max_node)
+	child_nodes.remove(n)
+	if n<5 and 0 in child_nodes:
+		child_nodes.remove(0)
+	child_nodes.append(parent_node)
+	if n==0 and 0 in child_nodes:
+		child_nodes.remove(0)
+	return child_nodes

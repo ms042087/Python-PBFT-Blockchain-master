@@ -235,7 +235,7 @@ class Client:
                 self._log.info("--->client %d's message %d sent fail.", self._client_id, i)
                 accumulate_failure += 1
                 if accumulate_failure == self._retry_times:
-                    await self.request_view_change() # If send fail, request review change
+                    #await self.request_view_change() # If send fail, request review change
                     # Sleep 0 - 1 second for view change
                     await asyncio.sleep(random())
                     accumulate_failure = 0

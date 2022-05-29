@@ -1,5 +1,5 @@
 ./run_node.sh
-sleep 15 
+sleep 10 
 ./run_client.sh
 
 sleep 50
