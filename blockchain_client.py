@@ -11,6 +11,7 @@ from random import random
 import hashlib
 import traceback
 from random import randint
+import numpy as np
 
 class View:
     def __init__(self, view_number, num_nodes):
@@ -205,7 +206,7 @@ class Client:
             timeout = aiohttp.ClientTimeout(self._resend_interval)
             self._session = aiohttp.ClientSession(timeout = timeout)
         for i in range(self._num_messages):
-            await asyncio.sleep(random())
+            await asyncio.sleep(np.random.poisson(100, 1)[0]/50)
             await self.send_request( str(i), i)
         await self._session.close()
 

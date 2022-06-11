@@ -19,10 +19,23 @@ from Tree import *
 
 VIEW_SET_INTERVAL = 10
 
+'''
+There are 7 classes in this program:
+1) View
+2) Status
+3) CheckPoint
+4) ViewChangeVotes
+5) Block
+6) Blockchain
+7) PBFTHandler
+'''
+
+
+# Define Primary View and Secondary View
 
 class View:
     def __init__(self, view_number, id,num_nodes):
-        self._view_number = view_number # To check what is view number
+        self._view_number = view_number 
         self._num_nodes = num_nodes 
         #self._num_nodes = calculuate_view_node_count(id,num_nodes)
 
@@ -137,7 +150,6 @@ class Status:
             if key not in self.commit_msgs:
                 print("NOT IN")
                 self.commit_msgs[key] = self.SequenceElement(proposal)
-            print("Node",self.commit_msgs[key].from_nodes)
             self.commit_msgs[key].from_nodes.add(from_node)
 
     def _check_majority(self, msg_type):
@@ -150,16 +162,16 @@ class Status:
             if self.prepare_certificate:
                 return True
             for key in self.prepare_msgs:
+                print("Prepare msg from: ", self.prepare_msgs[key].from_nodes)
                 if len(self.prepare_msgs[key].from_nodes)>= 2 * self.f + 1:
                     return True
             return False
 
         if msg_type == Status.COMMIT:
-            print(self.commit_msgs,"AA",self.f)
             if self.commit_certificate:
                 return True
             for key in self.commit_msgs:
-                print(self.commit_msgs[key].from_nodes)
+                print("Commit msg from: ", self.commit_msgs[key].from_nodes)
                 if len(self.commit_msgs[key].from_nodes) >= 2 * self.f + 1:
                     return True
             return False 
@@ -230,20 +242,23 @@ class CheckPoint:
                 'type': 'vote'
             }
         '''
+
+        # Step 1: Receive Checkpoint Vote and Update Checkpoint Status
         self._log.debug("---> %d: Receive checkpoint votes", self._node_index)
         ckpt = json.loads(ckpt_vote['ckpt'])
         next_slot = ckpt_vote['next_slot']
         from_node = ckpt_vote['node_index']
-
         hash_ckpt = self._hash_ckpt(ckpt)
-        if hash_ckpt not in self._received_votes_by_ckpt:
+        if hash_ckpt not in self._received_votes_by_ckpt: # If not previously received this vote, add to _received_votes_by_ckpt.
             self._received_votes_by_ckpt[hash_ckpt] = (
                 CheckPoint.ReceiveVotes(ckpt, next_slot))
         status = self._received_votes_by_ckpt[hash_ckpt]
         status.from_nodes.add(from_node)
+        # Step 2: If reveived 2f+1 votes => Update checkpoint
         for hash_ckpt in self._received_votes_by_ckpt:
-            if (self._received_votes_by_ckpt[hash_ckpt].next_slot > self.next_slot and 
-                    len(self._received_votes_by_ckpt[hash_ckpt].from_nodes) >= 2 * self._f + 1):
+            if (self._received_votes_by_ckpt[hash_ckpt].next_slot > self.next_slot and # If the new next_slot > old next_slot
+                    len(self._received_votes_by_ckpt[hash_ckpt].from_nodes) >= 2 * self._f + 1): # AND if reached consensus
+                    # Conclusion: Stable Checkpoint will be created
                 self._log.info("---> %d: Update checkpoint by receiving votes", self._node_index)
                 self.next_slot = self._received_votes_by_ckpt[hash_ckpt].next_slot
                 self.checkpoint = self._received_votes_by_ckpt[hash_ckpt].checkpoint
@@ -571,16 +586,15 @@ class PBFTHandler:
         self._log = logging.getLogger(__name__) 
 
 
-
 	# If index >0, ask node to get the number of node in blockchain first
-        if index>0:
+#        if index>0:
             # Step 1: Get the number of nodes in blockchain
-            node_count = requests.post("http://localhost:30000/node-count", {}).json()['node_count']
-            self._node_cnt = node_count
+#            node_count = requests.post("http://localhost:30000/node-count", {}).json()['node_count']
+#            self._node_cnt = node_count
             # Step 2: Join the blockchain
             #requests.post("http://localhost:30000/join", {"id":node_count}) # not work, todo
             # Step 3: Update View and CheckPoint
-            self._view = View(0, self._index,self._node_cnt)
+#            self._view = View(0, self._index,self._node_cnt)
             #self._ckpt = CheckPoint(self._checkpoint_interval, self._nodes, 
             #self._f, self._index, self._loss_rate, self._network_timeout)
 
@@ -828,6 +842,8 @@ class PBFTHandler:
 
         '''
         json_data = await request.json()
+        print("PROPOSAL- PREPARE")
+        print(json_data['proposal'])
         print(self._index, " received prepare from leader node ", json_data['leader'])
         if json_data['view'] < self._follow_view.get_view():
             # when receive message with view < follow_view, do nothing
@@ -881,6 +897,7 @@ class PBFTHandler:
 
         if json_data['view'] < self._follow_view.get_view():
             # when receive message with view < follow_view, do nothing
+            print("view < follow_view, do nothing")
             return web.Response()
 
 
@@ -942,7 +959,7 @@ class PBFTHandler:
             return web.Response()
 
         self._log.info("---> Node %d: receive commit msg from Node %d", self._index, json_data['index'])
-        print("PROPOSAL")
+        print("PROPOSAL- COMMIT")
         print(json_data['proposal'])
         for slot in json_data['proposal']:
             if not self._legal_slot(slot):
@@ -1162,7 +1179,7 @@ class PBFTHandler:
                     (Elements are commit_certificate.to_dict())
             }
         '''
-        # TODO: Only send bubble slot message instead of all.
+
         while 1:
             await asyncio.sleep(self._sync_interval)
             commit_certificates = {}
@@ -1347,7 +1364,7 @@ class PBFTHandler:
     async def garbage_collection(self):
         '''
         Delete those status in self._status_by_slot if its 
-        slot smaller than next slot of the checkpoint.
+        slot smaller than next slot of the stable checkpoint.
         '''
         await asyncio.sleep(self._sync_interval)
         delete_slots = []
@@ -1457,10 +1474,12 @@ def main():
     host = "localhost"
     port = 30000+args.index
 
-    #print("Node"+str(args.index)+": Before Creating PBFT Handler")
-    # NEED TO ADD JOIN REQUEST
+    '''
+    1) Create PBFT Handler
+    2) Run synchronize
+    3) Run garbage collection function
+    '''
     pbft = PBFTHandler(args.index, conf) 
-    #print("Node"+str(args.index)+": After Creating PBFT Handler")
     asyncio.ensure_future(pbft.synchronize())
     asyncio.ensure_future(pbft.garbage_collection())
 
