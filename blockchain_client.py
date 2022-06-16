@@ -10,8 +10,8 @@ from aiohttp import web
 from random import random
 import hashlib
 import traceback
-from random import randint
-import numpy as np
+
+
 
 class View:
     def __init__(self, view_number, num_nodes):
@@ -63,9 +63,11 @@ class Status:
         '''
         
         for key in self.reply_msgs:
-            if len(self.reply_msgs[key].from_nodes)>= self.f + 1:
+            print(self.reply_msgs[key].from_nodes)
+            if len(self.reply_msgs[key].from_nodes)>= 2: #self.f + 1:
+                print("The client has successfully received the reply")
                 return True
-        return False
+        return False 
 
 def logging_config(log_level=logging.INFO, log_file=None):
     root_logger = logging.getLogger()
@@ -187,6 +189,7 @@ class Client:
         output:
             Web.Response
         '''
+        print("Got Reply")
         json_data = await request.json()
         if time.time() - json_data['proposal']['timestamp'] >= self._resend_interval:
             return web.Response()
@@ -195,7 +198,7 @@ class Client:
         self._status._update_sequence(view, json_data['proposal'], json_data['index'])
 
         if self._status._check_succeed():
-            self._log.info("Get reply from %d", json_data['index'])
+            # self._log.info("Get reply from %d", json_data['index'])
             self._is_request_succeed.set()
 
         return web.Response()
@@ -205,42 +208,51 @@ class Client:
         if not self._session:
             timeout = aiohttp.ClientTimeout(self._resend_interval)
             self._session = aiohttp.ClientSession(timeout = timeout)
+         
         for i in range(self._num_messages):
-            await asyncio.sleep(np.random.poisson(100, 1)[0]/50)
+            # Every time succeed in sending message, wait for 0 - 1 second.
+            await asyncio.sleep(random())
+            
             await self.send_request( str(i), i)
+
         await self._session.close()
 
-# TO DO: Need to know send to which node
+
     async def send_request(self, message, i=-1):
         accumulate_failure = 0
         is_sent = False
-        dest_ind = randint(0, 3) # Send to node N
+        dest_ind = 0
         self._is_request_succeed = asyncio.Event()
+        # Every time succeed in sending message, wait for 0 - 1 second.
+        # await asyncio.sleep(random())
         json_data = {
             'id': (self._client_id, i),
-            'client_url': self._client_url + "/" + Client.REPLY, # For return
+            'client_url': self._client_url + "/" + Client.REPLY,
             'timestamp': time.time(),
-            'data': "Client "+str(self._client_id)+" sending data packet "+str(message)+" to Node " + str(dest_ind)
+            'data': "data packet "+str(message)        
         }
+
         while 1:
             try:
                 self._status = Status(self._f)
-                url = make_url(self._nodes[dest_ind], Client.REQUEST)
-                self._log.info("client %d sending to url %s",self._client_id,url)
-                await self._session.post(url, json=json_data)
+                await self._session.post(make_url(self._nodes[dest_ind], Client.REQUEST), json=json_data)
+                # print("request sent")
+
                 await asyncio.wait_for(self._is_request_succeed.wait(), self._resend_interval)
             except:
+                
                 json_data['timestamp'] = time.time()
                 self._status = Status(self._f)
                 self._is_request_succeed.clear()
                 self._log.info("--->client %d's message %d sent fail.", self._client_id, i)
+
                 accumulate_failure += 1
                 if accumulate_failure == self._retry_times:
-                    await self.request_view_change() # If send fail, request review change
+                    await self.request_view_change()
                     # Sleep 0 - 1 second for view change
                     await asyncio.sleep(random())
                     accumulate_failure = 0
-                    dest_ind = (dest_ind + 1) % len(self._nodes) # dest_id update
+                    dest_ind = (dest_ind + 1) % len(self._nodes)
             else:
                 self._log.info("--->client %d's  message %d sent successfully.", self._client_id, i)
                 is_sent = True
@@ -259,14 +271,24 @@ def setup(args = None):
                 self.num_messages   = 0
                 self.config         = open('pbft.yaml', 'r')
         args = Args()
+       
+
     conf = conf_parse(args.config)
     log.debug(conf)
     try:
         addr = conf['clients'][args.client_id]
     except Exception as e:
         import pdb; pdb.set_trace()
+    
+
+
     log.info("begin")
+
+
     client = Client(conf, args, log)
+
+    
+
     return client
 
 def run_app(client):
@@ -275,18 +297,12 @@ def run_app(client):
     host = addr['host']
     port = addr['port']
 
-# Send Request
+
     asyncio.ensure_future(client.request())
 
-# Reply Handler
     app = web.Application()
     app.add_routes([
-        web.post('/' + Client.REPLY, client.get_reply), # (URL, Post handler)
-   ])
+        web.post('/' + Client.REPLY, client.get_reply),
+    ])
 
     web.run_app(app, host=host, port=port, access_log=None)
-
-
-
-            
-    

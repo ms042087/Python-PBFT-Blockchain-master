@@ -193,4 +193,21 @@ def calculate_other_nodes_in_sub_byzantine_group(n,max_node):
 		child_nodes.remove(0)
 	return child_nodes
 
-#print(calculate_other_nodes_in_sub_byzantine_group(0,4))
+def calculate_primary_byzantine_nodes(n,max_node):
+	parent_node = calculuate_parent(n,max_node)
+	child_nodes = calculuate_child(parent_node,max_node)
+	if n<5 and 0 in child_nodes:
+		child_nodes.remove(0)
+	child_nodes.append(parent_node)
+	return child_nodes
+
+def calculate_secondary_byzantine_nodes(n,max_node):
+	child_nodes = calculuate_child(n,max_node)
+	if n<5 and 0 in child_nodes:
+		child_nodes.remove(0)
+	return child_nodes
+
+#for i in range(0,16):
+	#print(i,calculate_primary_byzantine_nodes(i,17))
+	#print(i,calculate_secondary_byzantine_nodes(i,17))
+
