@@ -207,6 +207,9 @@ def calculate_secondary_byzantine_nodes(n,max_node):
 		child_nodes.remove(0)
 	return child_nodes
 
+def isLeafNode(n,max_node):
+	return calculuate_child(n,max_node)==[]
+
 #for i in range(0,16):
 	#print(i,calculate_primary_byzantine_nodes(i,17))
 	#print(i,calculate_secondary_byzantine_nodes(i,17))

@@ -18,6 +18,10 @@ from Tree import *
 
 VIEW_SET_INTERVAL = 10
 
+def setIsSecondaryPBFTCompleted(pbft,value):
+    pbft._setIsSecondaryPBFTCompleted(value)
+
+
 class View:
     def __init__(self, view_number, num_nodes):
         self._view_number = view_number
@@ -142,7 +146,8 @@ class Status:
             if self.prepare_certificate:
                 return True
             for key in self.prepare_msgs:
-                if len(self.prepare_msgs[key].from_nodes)>= 2 * self.f + 1:
+                if len(self.prepare_msgs[key].from_nodes)>= 3: #2 * self.f + 1:
+                    print("TRUE")
                     return True
             return False
 
@@ -499,19 +504,29 @@ class PBFTHandler:
     PREPARE = 'prepare'
     COMMIT = 'commit'
     REPLY = 'reply'
-
     NO_OP = 'NOP'
-
     RECEIVE_SYNC = 'receive_sync'
     RECEIVE_CKPT_VOTE = 'receive_ckpt_vote'
-
     VIEW_CHANGE_REQUEST = 'view_change_request'
     VIEW_CHANGE_VOTE = "view_change_vote"
+    REQUEST_2 = 'request_2'
+    PREPREPARE_2 = 'preprepare_2'
+    PREPARE_2 = 'prepare_2'
+    COMMIT_2 = 'commit_2'
+    REPLY_2 = 'reply_2'
+    NO_OP_2 = 'NOP_2'
+    RECEIVE_SYNC_2 = 'receive_sync_2'
+    RECEIVE_CKPT_VOTE_2 = 'receive_ckpt_vote_2'
+    VIEW_CHANGE_REQUEST_2 = 'view_change_request_2'
+    VIEW_CHANGE_VOTE_2 = "view_change_vote_2"
 
-    def __init__(self, index, conf):
+
+    def __init__(self, index, conf, isPrimary):
         self._nodes = conf['nodes']
         self._node_cnt = len(self._nodes)
         self._index = index
+        self._isPrimary = isPrimary
+        self._isSecondaryPBFTCompleted = False
         # Number of faults tolerant.
         self._f = (self._node_cnt - 1) // 3
         print("In ",index,", node_count = ", len(self._nodes))
@@ -525,12 +540,15 @@ class PBFTHandler:
         # tracks if commit_decisions had been commited to blockchain
         self.committed_to_blockchain = False
 
-        # TODO: Test fixed
-        if self._index == 0:
-            self._is_leader = True
-        else:
+        # UPDATE
+        if isPrimary==True:
             self._is_leader = False
+            self._leader = calculuate_parent(self._index,17)
+        else:
+           self._is_leader = True
+           self._leader = self._index
 
+        self._json_data = {}
         # Network simulation
         self._loss_rate = conf['loss%'] / 100
 
@@ -547,10 +565,6 @@ class PBFTHandler:
         # Commit
         self._last_commit_slot = -1
 
-        # Indicate my current leader.
-        # TODO: Test fixed
-        self._leader = 0
-
         # The largest view either promised or accepted
         self._follow_view = View(0, self._node_cnt)
         # Restore the votes number and information for each view number
@@ -566,7 +580,8 @@ class PBFTHandler:
         self._session = None
         self._log = logging.getLogger(__name__) 
 
-
+    def _setIsSecondaryPBFTCompleted(self,value):
+        self._isSecondaryPBFTCompleted = value
             
     @staticmethod
     def make_url(node, command):
@@ -630,6 +645,8 @@ class PBFTHandler:
         for i, node in enumerate(nodes):
             if random() > self._loss_rate:
                 self._log.debug("make request to %d, %s", i, command)
+                if command !="receive_sync":
+                    print(self._index," Make request to node ", node['port']-30000, " ", command)
                 try:
                     _ = await self._session.post(self.make_url(node, command), json=json_data)
                 except Exception as e:
@@ -664,6 +681,7 @@ class PBFTHandler:
 
         '''
 
+        self._json_data = json_data
         
         this_slot = str(self._next_propose_slot)
         self._next_propose_slot = int(this_slot) + 1
@@ -683,8 +701,9 @@ class PBFTHandler:
             },
             'type': 'preprepare'
         }
-        
+
         await self._post(self._nodes, PBFTHandler.PREPARE, preprepare_msg)
+
 
     async def get_request(self, request):
         '''
@@ -692,19 +711,26 @@ class PBFTHandler:
         redirect to the leader.
         '''
         self._log.info("---> %d: on request", self._index)
+        if self._isPrimary == True:
+            if isLeafNode(self._index,17)==False:
+                print("It is not leaf node, performing secondary PBFT")
+                raise web.HTTPTemporaryRedirect(self.make_url({'host': 'localhost', 'port': 30000+self._index}, PBFTHandler.REQUEST_2))
+            else:
+                print("It is a leaf node, redirecting to "+str(self._leader)+" to perform secondary PBFT")
+                raise web.HTTPTemporaryRedirect(self.make_url(self._nodes[self._leader], PBFTHandler.REQUEST_2))
 
         if not self._is_leader:
             if self._leader != None:
+                print("Redirecting to node "+str(self._leader))
                 raise web.HTTPTemporaryRedirect(self.make_url(
                     self._nodes[self._leader], PBFTHandler.REQUEST))
             else:
                 raise web.HTTPServiceUnavailable()
         else:
 
-            # print(request.headers)
-            # print(request.__dict__)
 
             json_data = await request.json()
+            
             print(self._index," received request from client")
 
             # print("\t\t--->node"+str(self._index)+": on request :")
@@ -757,7 +783,14 @@ class PBFTHandler:
                 },
                 'type': Status.PREPARE
             }
-            await self._post(self._nodes, PBFTHandler.COMMIT, prepare_msg)
+
+            other_nodes = self._nodes.copy()
+            other_nodes.remove({'host': 'localhost', 'port': 30000+self._leader})
+            leader_node = [{'host': 'localhost', 'port': 30000+self._leader}]
+            
+            await self._post(other_nodes, PBFTHandler.COMMIT, prepare_msg)
+            await self._post(leader_node, PBFTHandler.COMMIT_2, prepare_msg)
+
         return web.Response()
 
     async def commit(self, request):
@@ -813,7 +846,12 @@ class PBFTHandler:
                     },
                     'type': Status.COMMIT
                 }
-                await self._post(self._nodes, PBFTHandler.REPLY, commit_msg)
+                other_nodes = self._nodes.copy()
+                other_nodes.remove({'host': 'localhost', 'port': 30000+self._leader})
+                leader_node = [{'host': 'localhost', 'port': 30000+self._leader}]
+                await self._post(other_nodes, PBFTHandler.REPLY, commit_msg)
+                await self._post(leader_node, PBFTHandler.REPLY_2, commit_msg)
+
         return web.Response()
 
     async def reply(self, request):
@@ -832,7 +870,7 @@ class PBFTHandler:
                     'type': 'commit'
                 }
         '''
-        
+
         json_data = await request.json()
         # print(self._index, "received commit")
         self._log.info("---> %d: on reply", self._index)
@@ -845,7 +883,6 @@ class PBFTHandler:
 
         self._log.info("---> %d: receive commit msg from %d", 
             self._index, json_data['index'])
-        #print("proposal: ", json_data['proposal'])
         for slot in json_data['proposal']:
             if not self._legal_slot(slot):
                 continue
@@ -894,14 +931,20 @@ class PBFTHandler:
                     await self._commit_action()
 
                     try:
-                        await self._session.post(
-                            json_data['proposal'][slot]['client_url'], json=reply_msg)
+                        if self._index in [0,1,2,3,4] and self._isPrimary==True:
+                            print("sending reply to client")
+                            await self._session.post(json_data['proposal'][slot]['client_url'], json=reply_msg)
+                        elif self._index in [1,2,3,4] and self._isPrimary==False:
+                            # Send request to upper layer
+                            print(self._index," sending request to primary Byzantine group")
+                            await self._post([{'host': 'localhost', 'port': 30000+calculuate_parent(self._index,17)}], PBFTHandler.REQUEST, json_data['proposal'][slot])
+                        
                     except:
                         self._log.error("Send message failed to %s", 
                             json_data['proposal'][slot]['client_url'])
                         pass
                     else:
-                        print(self.index, "committed")
+                        print("committed")
                         self._log.info("%d reply to %s successfully!!", 
                             self._index, json_data['proposal'][slot]['client_url'])
                 
@@ -1362,14 +1405,28 @@ def main():
     primary_conf['nodes'] = primary_conf_nodes
     secondary_conf['nodes'] = secondary_conf_nodes
 
-    primary_pbft = PBFTHandler(args.index, primary_conf)
+    primary_pbft = PBFTHandler(args.index, primary_conf, True)
     asyncio.ensure_future(primary_pbft.synchronize())
     asyncio.ensure_future(primary_pbft.garbage_collection())
     print(args.index," formed a primary Byzantine group with ", primary_byzantine_nodes)
+
+    app = web.Application()
+
     if(secondary_conf['nodes']!=[]):
-        secondary_pbft = PBFTHandler(args.index, secondary_conf)
+        secondary_pbft = PBFTHandler(args.index, secondary_conf, False)
         asyncio.ensure_future(secondary_pbft.synchronize())
         asyncio.ensure_future(secondary_pbft.garbage_collection())
+        app.add_routes([
+        web.post('/' + PBFTHandler.REQUEST_2, secondary_pbft.get_request),
+        web.post('/' + PBFTHandler.PREPREPARE_2, secondary_pbft.preprepare),
+        web.post('/' + PBFTHandler.PREPARE_2, secondary_pbft.prepare),
+        web.post('/' + PBFTHandler.COMMIT_2, secondary_pbft.commit),
+        web.post('/' + PBFTHandler.REPLY_2, secondary_pbft.reply),
+        web.post('/' + PBFTHandler.RECEIVE_CKPT_VOTE_2, secondary_pbft.receive_ckpt_vote),
+        web.post('/' + PBFTHandler.RECEIVE_SYNC_2, secondary_pbft.receive_sync),
+        web.post('/' + PBFTHandler.VIEW_CHANGE_REQUEST_2, secondary_pbft.get_view_change_request),
+        web.post('/' + PBFTHandler.VIEW_CHANGE_VOTE_2, secondary_pbft.receive_view_change_vote),
+        ])
         print(args.index," formed a secondary Byzantine group with ", secondary_byzantine_nodes)
     else:
         print(args.index," does not have a secondary Byzantine group")
@@ -1377,7 +1434,7 @@ def main():
 
     
 
-    app = web.Application()
+    
     app.add_routes([
         web.post('/' + PBFTHandler.REQUEST, primary_pbft.get_request),
         web.post('/' + PBFTHandler.PREPREPARE, primary_pbft.preprepare),

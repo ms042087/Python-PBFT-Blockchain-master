@@ -11,7 +11,7 @@ from random import random
 import hashlib
 import traceback
 
-
+from Tree import *
 
 class View:
     def __init__(self, view_number, num_nodes):
@@ -64,7 +64,7 @@ class Status:
         
         for key in self.reply_msgs:
             print(self.reply_msgs[key].from_nodes)
-            if len(self.reply_msgs[key].from_nodes)>= 2: #self.f + 1:
+            if len(self.reply_msgs[key].from_nodes)>= 3: # 0,1,2,3,4, 3 out of 5
                 print("The client has successfully received the reply")
                 return True
         return False 
@@ -132,6 +132,7 @@ def make_url(node, command):
 
 class Client:
     REQUEST = "request"
+    REQUEST_2 = "request_2"
     REPLY = "reply"
     VIEW_CHANGE_REQUEST = 'view_change_request'
 
@@ -221,7 +222,7 @@ class Client:
     async def send_request(self, message, i=-1):
         accumulate_failure = 0
         is_sent = False
-        dest_ind = 0
+        dest_ind = 4 # DEFAULT IS NODE 0
         self._is_request_succeed = asyncio.Event()
         # Every time succeed in sending message, wait for 0 - 1 second.
         # await asyncio.sleep(random())
@@ -235,9 +236,13 @@ class Client:
         while 1:
             try:
                 self._status = Status(self._f)
-                await self._session.post(make_url(self._nodes[dest_ind], Client.REQUEST), json=json_data)
-                # print("request sent")
-
+                if isLeafNode(dest_ind,17) == True:
+                    print("request sent to node "+str(dest_ind)+", primary")
+                    await self._session.post(make_url(self._nodes[dest_ind], Client.REQUEST), json=json_data)
+                else:
+                    print("request sent to node "+str(dest_ind)+", secondary")
+                    await self._session.post(make_url(self._nodes[dest_ind], Client.REQUEST_2), json=json_data)
+                
                 await asyncio.wait_for(self._is_request_succeed.wait(), self._resend_interval)
             except:
                 
