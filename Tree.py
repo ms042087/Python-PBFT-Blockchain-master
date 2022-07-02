@@ -106,7 +106,7 @@ def reassignNode(maxLevel,l):
 				levelTwoResult = levelTwoResult+1 
 			tree.root[0].root[0].root.pop()
 			tree.root[0].root[1].root.pop()
-			print(l,levelOneResult,levelTwoResult)
+			#print(l,levelOneResult,levelTwoResult)
 			tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(17+3*l))
 			tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(18+3*l))
 			tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(19+3*l))
@@ -121,7 +121,7 @@ def addNode(maxNum):
 	r = (maxNum-4**(maxLevel-1)-1)%3
 	
 	d = 0 if maxLevel<=2 else 4**(maxLevel-2) # last layer last item
-	print(maxNum,": ",maxLevel,q,r,d)
+	#print(maxNum,": ",maxLevel,q,r,d)
 
 	result = 0
 	if q==0:
@@ -159,14 +159,14 @@ def addNode(maxNum):
 		#levelTwoResult = math.floor((maxNum-16-9*levelOneResult)/3)-1
 		levelOneResult = math.ceil((result-3)/4)-1
 		levelTwoResult = result-4-3*levelOneResult-1
-		print(levelOneResult,levelTwoResult,result)
-		print(tree.root[levelOneResult].root)
+		#print(levelOneResult,levelTwoResult,result)
+		#print(tree.root[levelOneResult].root)
 		tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(maxNum))		
 
 #	print(maxNum,maxLevel,q,r,result)
 	result = printNTree(tree, [True]*(maxNum+1), 0, False,[],0)
 	result.sort(key=lambda x:x[0]) 
-	print(result)
+	#print(result)
 	return(result)
 #	print("#######################################################")
 #	print("printed",tree.root)
@@ -187,7 +187,7 @@ def calculuate_parent(n,max_node):
 	'''
 	global tree
 	for i in range (1,max_node):
-		topo=addNode(1, i)
+		topo=addNode(i)
 	tree = tnode(0)
 	result = 0
 	for i in topo:
@@ -202,7 +202,7 @@ def calculuate_child(n,max_node):
 	'''
 	global tree
 	for i in range (1,max_node):
-		topo=addNode(1, i)
+		topo=addNode(i)
 	tree = tnode(0)
 	result = []
 	for i in topo:
@@ -245,4 +245,4 @@ def calculate_secondary_byzantine_nodes(n,max_node):
 def isLeafNode(n,max_node):
 	return calculuate_child(n,max_node)==[]
 
-calculuate_topology(60)
+#calculuate_topology(60)

@@ -1,0 +1,337 @@
+nodes:
+    - host: localhost
+      port: 30000
+    - host: localhost
+      port: 30001
+    - host: localhost
+      port: 30002
+    - host: localhost
+      port: 30003
+    - host: localhost
+      port: 30004
+    - host: localhost
+      port: 30005
+    - host: localhost
+      port: 30006
+    - host: localhost
+      port: 30007
+    - host: localhost
+      port: 30008
+    - host: localhost
+      port: 30009
+    - host: localhost
+      port: 30010
+    - host: localhost
+      port: 30011
+    - host: localhost
+      port: 30012
+    - host: localhost
+      port: 30013
+    - host: localhost
+      port: 30014
+    - host: localhost
+      port: 30015
+    - host: localhost
+      port: 30016
+    - host: localhost
+      port: 30017
+    - host: localhost
+      port: 30018
+    - host: localhost
+      port: 30019
+    - host: localhost
+      port: 30020
+    - host: localhost
+      port: 30021
+    - host: localhost
+      port: 30022
+    - host: localhost
+      port: 30023
+    - host: localhost
+      port: 30024
+    - host: localhost
+      port: 30025
+    - host: localhost
+      port: 30026
+    - host: localhost
+      port: 30027
+    - host: localhost
+      port: 30028
+    - host: localhost
+      port: 30029
+    - host: localhost
+      port: 30030
+    - host: localhost
+      port: 30031
+    - host: localhost
+      port: 30032
+    - host: localhost
+      port: 30033
+    - host: localhost
+      port: 30034
+    - host: localhost
+      port: 30035
+    - host: localhost
+      port: 30036
+    - host: localhost
+      port: 30037
+    - host: localhost
+      port: 30038
+    - host: localhost
+      port: 30039
+    - host: localhost
+      port: 30040
+    - host: localhost
+      port: 30041
+    - host: localhost
+      port: 30042
+    - host: localhost
+      port: 30043
+    - host: localhost
+      port: 30044
+    - host: localhost
+      port: 30045
+    - host: localhost
+      port: 30046
+    - host: localhost
+      port: 30047
+    - host: localhost
+      port: 30048
+    - host: localhost
+      port: 30049
+    - host: localhost
+      port: 30050
+    - host: localhost
+      port: 30051
+    - host: localhost
+      port: 30052
+    - host: localhost
+      port: 30053
+    - host: localhost
+      port: 30054
+    - host: localhost
+      port: 30055
+    - host: localhost
+      port: 30056
+    - host: localhost
+      port: 30057
+    - host: localhost
+      port: 30058
+    - host: localhost
+      port: 30059
+    - host: localhost
+      port: 30060
+    - host: localhost
+      port: 30061
+    - host: localhost
+      port: 30062
+    - host: localhost
+      port: 30063
+    - host: localhost
+      port: 30064
+    - host: localhost
+      port: 30065
+    - host: localhost
+      port: 30066
+    - host: localhost
+      port: 30067
+    - host: localhost
+      port: 30068
+    - host: localhost
+      port: 30069
+    - host: localhost
+      port: 30070
+    - host: localhost
+      port: 30071
+    - host: localhost
+      port: 30072
+    - host: localhost
+      port: 30073
+    - host: localhost
+      port: 30074
+    - host: localhost
+      port: 30075
+    - host: localhost
+      port: 30076
+    - host: localhost
+      port: 30077
+    - host: localhost
+      port: 30078
+    - host: localhost
+      port: 30079
+    - host: localhost
+      port: 30080
+    - host: localhost
+      port: 30081
+    - host: localhost
+      port: 30082
+    - host: localhost
+      port: 30083
+    - host: localhost
+      port: 30084
+    - host: localhost
+      port: 30085
+    - host: localhost
+      port: 30086
+    - host: localhost
+      port: 30087
+    - host: localhost
+      port: 30088
+    - host: localhost
+      port: 30089
+    - host: localhost
+      port: 30090
+    - host: localhost
+      port: 30091
+    - host: localhost
+      port: 30092
+    - host: localhost
+      port: 30093
+    - host: localhost
+      port: 30094
+    - host: localhost
+      port: 30095
+    - host: localhost
+      port: 30096
+    - host: localhost
+      port: 30097
+    - host: localhost
+      port: 30098
+    - host: localhost
+      port: 30099
+    - host: localhost
+      port: 30100
+    - host: localhost
+      port: 30101
+    - host: localhost
+      port: 30102
+    - host: localhost
+      port: 30103
+    - host: localhost
+      port: 30104
+    - host: localhost
+      port: 30105
+    - host: localhost
+      port: 30106
+    - host: localhost
+      port: 30107
+    - host: localhost
+      port: 30108
+    - host: localhost
+      port: 30109
+    - host: localhost
+      port: 30110
+    - host: localhost
+      port: 30111
+    - host: localhost
+      port: 30112
+    - host: localhost
+      port: 30113
+    - host: localhost
+      port: 30114
+    - host: localhost
+      port: 30115
+    - host: localhost
+      port: 30116
+    - host: localhost
+      port: 30117
+    - host: localhost
+      port: 30118
+    - host: localhost
+      port: 30119
+    - host: localhost
+      port: 30120
+    - host: localhost
+      port: 30121
+    - host: localhost
+      port: 30122
+    - host: localhost
+      port: 30123
+    - host: localhost
+      port: 30124
+    - host: localhost
+      port: 30125
+    - host: localhost
+      port: 30126
+    - host: localhost
+      port: 30127
+    - host: localhost
+      port: 30128
+    - host: localhost
+      port: 30129
+    - host: localhost
+      port: 30130
+    - host: localhost
+      port: 30131
+    - host: localhost
+      port: 30132
+    - host: localhost
+      port: 30133
+    - host: localhost
+      port: 30134
+    - host: localhost
+      port: 30135
+    - host: localhost
+      port: 30136
+    - host: localhost
+      port: 30137
+    - host: localhost
+      port: 30138
+    - host: localhost
+      port: 30139
+    - host: localhost
+      port: 30140
+    - host: localhost
+      port: 30141
+    - host: localhost
+      port: 30142
+    - host: localhost
+      port: 30143
+    - host: localhost
+      port: 30144
+    - host: localhost
+      port: 30145
+    - host: localhost
+      port: 30146
+    - host: localhost
+      port: 30147
+    - host: localhost
+      port: 30148
+    - host: localhost
+      port: 30149
+    - host: localhost
+      port: 30150
+    - host: localhost
+      port: 30151
+    - host: localhost
+      port: 30152
+    - host: localhost
+      port: 30153
+    - host: localhost
+      port: 30154
+    - host: localhost
+      port: 30155
+    - host: localhost
+      port: 30156
+    - host: localhost
+      port: 30157
+    - host: localhost
+      port: 30158
+    - host: localhost
+      port: 30159
+    - host: localhost
+      port: 30160
+clients:
+    - host: localhost
+      port: 20001
+
+loss%: 0
+
+ckpt_interval: 10
+
+retry_times_before_view_change: 2
+
+sync_interval: 5
+
+misc:
+    network_timeout: 50

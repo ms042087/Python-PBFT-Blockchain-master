@@ -17,8 +17,18 @@ import hashlib
 from Tree import *
 
 VIEW_SET_INTERVAL = 10
-TOTAL_NODE_COUNT = 161
+TOTAL_NODE_COUNT = 17
 
+def find_host(i):
+    if i in [0,1,5,6,7]:
+        host = "192.168.0.178"
+    elif i in [2,8,9,10]:
+        host = "192.168.0.189"
+    elif i in [3,11,12,13]:
+        host = "192.168.0.182"
+    else:
+        host = "192.168.0.193"
+    return host
 class View:
     def __init__(self, view_number, num_nodes):
         self._view_number = view_number
@@ -279,6 +289,8 @@ class CheckPoint:
                     #resp_list.append((i, e))
                     self._log.error(e)
                     pass
+            else:
+                print("msg loss")
 
     @staticmethod
     def make_url(node, command):
@@ -604,6 +616,8 @@ class PBFTHandler:
                     #resp_list.append((i, e))
                     self._log.error(e)
                     pass
+            else:
+                print("msg loss")
         return resp_list 
 
     async def _make_response(self, resp):
@@ -612,6 +626,8 @@ class PBFTHandler:
         '''
         if random() < self._loss_rate:
             await asyncio.sleep(self._network_timeout)
+        else:
+            print("msg loss")
         return resp
 
     async def _post(self, nodes, command, json_data):
@@ -636,6 +652,8 @@ class PBFTHandler:
                     #resp_list.append((i, e))
                     self._log.error(e)
                     pass
+            else:
+                print("msg loss")
 
     def _legal_slot(self, slot):
         '''
@@ -697,10 +715,10 @@ class PBFTHandler:
         if self._isPrimary == True:
             if isLeafNode(self._index,TOTAL_NODE_COUNT)==False:
                 print("It is not leaf node, performing secondary PBFT")
-                raise web.HTTPTemporaryRedirect(self.make_url({'host': 'localhost', 'port': 30000+self._index}, PBFTHandler.REQUEST_2))
+                raise web.HTTPTemporaryRedirect(self.make_url({'host': find_host(self._index), 'port': 30000+self._index}, PBFTHandler.REQUEST_2))
             else:
                 print("It is a leaf node, redirecting to "+str(self._leader)+" to perform secondary PBFT")
-                raise web.HTTPTemporaryRedirect(self.make_url({'host': 'localhost', 'port': 30000+self._leader}, PBFTHandler.REQUEST_2))
+                raise web.HTTPTemporaryRedirect(self.make_url({'host': find_host(self._index), 'port': 30000+self._leader}, PBFTHandler.REQUEST_2))
 
         if not self._is_leader:
             if self._leader != None:
@@ -768,8 +786,8 @@ class PBFTHandler:
             }
 
             other_nodes = self._nodes.copy()
-            other_nodes.remove({'host': 'localhost', 'port': 30000+self._leader})
-            leader_node = [{'host': 'localhost', 'port': 30000+self._leader}]
+            other_nodes.remove({'host': find_host(self._leader), 'port': 30000+self._leader})
+            leader_node = [{'host': find_host(self._leader), 'port': 30000+self._leader}]
             
             await self._post(other_nodes, PBFTHandler.COMMIT, prepare_msg)
             await self._post(leader_node, PBFTHandler.COMMIT_2, prepare_msg)
@@ -830,8 +848,8 @@ class PBFTHandler:
                     'type': Status.COMMIT
                 }
                 other_nodes = self._nodes.copy()
-                other_nodes.remove({'host': 'localhost', 'port': 30000+self._leader})
-                leader_node = [{'host': 'localhost', 'port': 30000+self._leader}]
+                other_nodes.remove({'host': find_host(self._leader), 'port': 30000+self._leader})
+                leader_node = [{'host': find_host(self._leader), 'port': 30000+self._leader}]
                 await self._post(other_nodes, PBFTHandler.REPLY, commit_msg)
                 await self._post(leader_node, PBFTHandler.REPLY_2, commit_msg)
 
@@ -920,7 +938,7 @@ class PBFTHandler:
                         elif self._index in [1,2,3,4] and self._isPrimary==False:
                             # Send request to upper layer
                             print(self._index," sending request to primary Byzantine group")
-                            await self._post([{'host': 'localhost', 'port': 30000+calculuate_parent(self._index,TOTAL_NODE_COUNT)}], PBFTHandler.REQUEST, json_data['proposal'][slot])
+                            await self._post([{'host': find_host(calculuate_parent(self._index,TOTAL_NODE_COUNT)), 'port': 30000+calculuate_parent(self._index,TOTAL_NODE_COUNT)}], PBFTHandler.REQUEST, json_data['proposal'][slot])
                         
                     except:
                         self._log.error("Send message failed to %s", 
@@ -1379,9 +1397,9 @@ def main():
     primary_conf_nodes = []
     secondary_conf_nodes = []
     for i in primary_byzantine_nodes:
-        primary_conf_nodes.append({'host':'localhost','port':30000+i})
+        primary_conf_nodes.append({'host':find_host(i),'port':30000+i})
     for i in secondary_byzantine_nodes:
-        secondary_conf_nodes.append({'host':'localhost','port':30000+i})
+        secondary_conf_nodes.append({'host':find_host(i),'port':30000+i})
     
     primary_conf = conf.copy()
     secondary_conf = conf.copy()

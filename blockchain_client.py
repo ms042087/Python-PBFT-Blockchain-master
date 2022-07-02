@@ -12,7 +12,7 @@ import hashlib
 import traceback
 
 from Tree import *
-TOTAL_NODE_COUNT = 161
+TOTAL_NODE_COUNT = 17
 
 class View:
     def __init__(self, view_number, num_nodes):
@@ -221,9 +221,10 @@ class Client:
 
 
     async def send_request(self, message, i=-1):
+        global startTime
         accumulate_failure = 0
         is_sent = False
-        dest_ind = 16 # DEFAULT IS NODE 0
+        dest_ind = i # DEFAULT IS NODE 0
         self._is_request_succeed = asyncio.Event()
         # Every time succeed in sending message, wait for 0 - 1 second.
         # await asyncio.sleep(random())
@@ -233,7 +234,7 @@ class Client:
             'timestamp': time.time(),
             'data': "data packet "+str(message)        
         }
-
+        
         while 1:
             try:
                 self._status = Status(self._f)
@@ -262,6 +263,7 @@ class Client:
             else:
                 self._log.info("--->client %d's  message %d sent successfully.", self._client_id, i)
                 is_sent = True
+                print(time.time()-startTime)
             if is_sent:
                 break
 
@@ -292,8 +294,8 @@ def setup(args = None):
 
 
     client = Client(conf, args, log)
-
-    
+    global startTime
+    startTime = time.time()
 
     return client
 
