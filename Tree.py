@@ -1,4 +1,3 @@
-# Python3 implementation to print N-ary Tree graphically
 import math
 
 # Structure of the node
@@ -33,7 +32,6 @@ def printNTree(x,flag,depth,isLast,result,prev):
 	# Condition when the current
 	# node is the root node
 	if depth == 0:
-#		print("DEPTH0")
 		result.append((x.n,0,0))
 		#print(x.n)
 	
@@ -41,7 +39,6 @@ def printNTree(x,flag,depth,isLast,result,prev):
 	# the last node of
 	# the exploring depth
 	elif isLast:
-#		print("ISLAST")
 		###print("+---", x.n)
 		result.append((x.n,prev,depth))
 		
@@ -49,16 +46,13 @@ def printNTree(x,flag,depth,isLast,result,prev):
 		# to the non-exploring depth
 		flag[depth] = False
 	else:
-#		print("ELSE")
 #		print(flag, depth)
 		###print("+---", x.n)
-		
 		result.append((x.n,prev,depth))
 
 	it = 0
 	for i in x.root:
 		it+=1
-#		print("LEN",len(x.root),x.n,i.n,depth)
 		# Recursive call for the
 		# children nodes
 		printNTree(i, flag, depth + 1, it == (len(x.root) - 1),result,x.n)
@@ -90,17 +84,44 @@ def reassignNode(maxLevel,l):
 			tree.root[0].root.pop()
 			tree.root[1].root.pop()
 			tree.root[3].root.append(tnode(14))
-			tree.root[3].root.append(tnode(15))		
-
+			tree.root[3].root.append(tnode(15))	
+	elif maxLevel==3:
+		if l==0:
+			tree.root[0].root.pop()
+			tree.root[0].root.pop()
+			tree.root[0].root[0].root.append(tnode(17))
+			tree.root[0].root[0].root.append(tnode(18))
+			tree.root[0].root[0].root.append(tnode(19))
+		if l==1:
+			tree.root[0].root[0].root.pop()
+			tree.root[0].root[0].root.pop()
+			tree.root[0].root[1].root.append(tnode(17+3*l))
+			tree.root[0].root[1].root.append(tnode(18+3*l))
+			tree.root[0].root[1].root.append(tnode(19+3*l))
+		if l>=2:
+			result = l+4
+			levelOneResult = math.ceil((result-3)/4)-1
+			levelTwoResult = result-4-3*levelOneResult-1
+			if result in [12,15]:
+				levelTwoResult = levelTwoResult+1 
+			tree.root[0].root[0].root.pop()
+			tree.root[0].root[1].root.pop()
+			print(l,levelOneResult,levelTwoResult)
+			tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(17+3*l))
+			tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(18+3*l))
+			tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(19+3*l))
+		
 # Function to add node to the Tree
-def addNode(nodeNum, maxNum):
+def addNode(maxNum):
 	global tree
 	maxLevel = math.ceil(math.log(maxNum)/math.log(4))
 	
+	# Belong to which part in last layer
 	q = math.floor((maxNum-4**(maxLevel-1)-1)/3)
 	r = (maxNum-4**(maxLevel-1)-1)%3
 	
-	d = 0 if maxLevel<=2 else 4**(maxLevel-2)
+	d = 0 if maxLevel<=2 else 4**(maxLevel-2) # last layer last item
+	print(maxNum,": ",maxLevel,q,r,d)
 
 	result = 0
 	if q==0:
@@ -112,7 +133,7 @@ def addNode(nodeNum, maxNum):
 			result = 1+d
 		elif r==2:
 			result = 2+d
-			reassignNode(2,1)
+			reassignNode(maxLevel,1)
 	elif q>=2:
 		if r==0:
 			result = 1+d
@@ -120,18 +141,32 @@ def addNode(nodeNum, maxNum):
 			result = 2+d
 		elif r==2:
 			result = q+1+d
-			reassignNode(2,q)
+			reassignNode(maxLevel,q)
 	if maxNum<7:
 		tree.root.append(tnode(maxNum))
 	elif maxNum==7:
 		reassignNode(1,0)
-	elif maxNum>7:
-#		print("XXXXXX",tree.root[result-1].n)
+	elif maxLevel==2:
+		#print(maxNum,result,maxLevel)
 		tree.root[result-1].root.append(tnode(maxNum))
+	elif maxLevel==3 and maxNum<=18:
+		tree.root[0].root.append(tnode(maxNum))
+	elif maxNum==19:
+		reassignNode(3,0)
+	elif maxLevel==3 and maxNum>19 and maxNum not in [22,25,28,31,34,37,40,43,46,49,52]:
+		#print(maxNum,result,maxLevel)
+		#levelOneResult = math.ceil((maxNum-16)/9)-1
+		#levelTwoResult = math.floor((maxNum-16-9*levelOneResult)/3)-1
+		levelOneResult = math.ceil((result-3)/4)-1
+		levelTwoResult = result-4-3*levelOneResult-1
+		print(levelOneResult,levelTwoResult,result)
+		print(tree.root[levelOneResult].root)
+		tree.root[levelOneResult].root[levelTwoResult].root.append(tnode(maxNum))		
 
 #	print(maxNum,maxLevel,q,r,result)
 	result = printNTree(tree, [True]*(maxNum+1), 0, False,[],0)
 	result.sort(key=lambda x:x[0]) 
+	print(result)
 	return(result)
 #	print("#######################################################")
 #	print("printed",tree.root)
@@ -141,7 +176,7 @@ def addNode(nodeNum, maxNum):
 def calculuate_topology(n):
 	global tree
 	for i in range (1,n):
-		result=addNode(1, i)
+		result=addNode(i)
 	tree = tnode(0)
 	return result
 
@@ -210,7 +245,4 @@ def calculate_secondary_byzantine_nodes(n,max_node):
 def isLeafNode(n,max_node):
 	return calculuate_child(n,max_node)==[]
 
-#for i in range(0,16):
-	#print(i,calculate_primary_byzantine_nodes(i,17))
-	#print(i,calculate_secondary_byzantine_nodes(i,17))
-
+calculuate_topology(60)

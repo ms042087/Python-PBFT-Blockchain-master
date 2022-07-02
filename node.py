@@ -17,10 +17,7 @@ import hashlib
 from Tree import *
 
 VIEW_SET_INTERVAL = 10
-
-def setIsSecondaryPBFTCompleted(pbft,value):
-    pbft._setIsSecondaryPBFTCompleted(value)
-
+TOTAL_NODE_COUNT = 161
 
 class View:
     def __init__(self, view_number, num_nodes):
@@ -147,7 +144,6 @@ class Status:
                 return True
             for key in self.prepare_msgs:
                 if len(self.prepare_msgs[key].from_nodes)>= 3: #2 * self.f + 1:
-                    print("TRUE")
                     return True
             return False
 
@@ -441,8 +437,6 @@ class Block:
 
 
 class Blockchain:
-    
-
     def __init__(self):
         self.commit_counter = 0
         self.length = 0
@@ -466,9 +460,6 @@ class Blockchain:
 
     def last_block_hash(self):
         tail = self.chain[-1]
-
-        # print(tail.transactions)
-
         return tail.hash
 
     def update_commit_counter(self):
@@ -485,14 +476,9 @@ class Blockchain:
 
         if previous_hash != block.previous_hash:
             raise Exception('block.previous_hash not equal to last_block_hash')
-            # print('block.previous_hash not equal to last_block_hash')
             return
-        # else:
-        #     print(str(previous_hash)+' == '+str(block.previous_hash))
-
 
         block.hash = block.compute_hash()
-        # print( 'New Hash : '+str(block.hash)+'\n\n')
         self.length += 1
         self.chain.append(block)
 
@@ -540,10 +526,10 @@ class PBFTHandler:
         # tracks if commit_decisions had been commited to blockchain
         self.committed_to_blockchain = False
 
-        # UPDATE
+        # update leader
         if isPrimary==True:
             self._is_leader = False
-            self._leader = calculuate_parent(self._index,17)
+            self._leader = calculuate_parent(self._index,TOTAL_NODE_COUNT)
         else:
            self._is_leader = True
            self._leader = self._index
@@ -579,9 +565,6 @@ class PBFTHandler:
         
         self._session = None
         self._log = logging.getLogger(__name__) 
-
-    def _setIsSecondaryPBFTCompleted(self,value):
-        self._isSecondaryPBFTCompleted = value
             
     @staticmethod
     def make_url(node, command):
@@ -712,12 +695,12 @@ class PBFTHandler:
         '''
         self._log.info("---> %d: on request", self._index)
         if self._isPrimary == True:
-            if isLeafNode(self._index,17)==False:
+            if isLeafNode(self._index,TOTAL_NODE_COUNT)==False:
                 print("It is not leaf node, performing secondary PBFT")
                 raise web.HTTPTemporaryRedirect(self.make_url({'host': 'localhost', 'port': 30000+self._index}, PBFTHandler.REQUEST_2))
             else:
                 print("It is a leaf node, redirecting to "+str(self._leader)+" to perform secondary PBFT")
-                raise web.HTTPTemporaryRedirect(self.make_url(self._nodes[self._leader], PBFTHandler.REQUEST_2))
+                raise web.HTTPTemporaryRedirect(self.make_url({'host': 'localhost', 'port': 30000+self._leader}, PBFTHandler.REQUEST_2))
 
         if not self._is_leader:
             if self._leader != None:
@@ -937,7 +920,7 @@ class PBFTHandler:
                         elif self._index in [1,2,3,4] and self._isPrimary==False:
                             # Send request to upper layer
                             print(self._index," sending request to primary Byzantine group")
-                            await self._post([{'host': 'localhost', 'port': 30000+calculuate_parent(self._index,17)}], PBFTHandler.REQUEST, json_data['proposal'][slot])
+                            await self._post([{'host': 'localhost', 'port': 30000+calculuate_parent(self._index,TOTAL_NODE_COUNT)}], PBFTHandler.REQUEST, json_data['proposal'][slot])
                         
                     except:
                         self._log.error("Send message failed to %s", 
@@ -1391,8 +1374,8 @@ def main():
     port = addr['port']
 
     # Create two PBFT Handler, One for Primary Byzantine Group, One for Secondary Byzantine Group
-    primary_byzantine_nodes= calculate_primary_byzantine_nodes(args.index,17)
-    secondary_byzantine_nodes=calculate_secondary_byzantine_nodes(args.index,17)
+    primary_byzantine_nodes= calculate_primary_byzantine_nodes(args.index,TOTAL_NODE_COUNT)
+    secondary_byzantine_nodes=calculate_secondary_byzantine_nodes(args.index,TOTAL_NODE_COUNT)
     primary_conf_nodes = []
     secondary_conf_nodes = []
     for i in primary_byzantine_nodes:

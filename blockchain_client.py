@@ -12,6 +12,7 @@ import hashlib
 import traceback
 
 from Tree import *
+TOTAL_NODE_COUNT = 161
 
 class View:
     def __init__(self, view_number, num_nodes):
@@ -222,7 +223,7 @@ class Client:
     async def send_request(self, message, i=-1):
         accumulate_failure = 0
         is_sent = False
-        dest_ind = 4 # DEFAULT IS NODE 0
+        dest_ind = 16 # DEFAULT IS NODE 0
         self._is_request_succeed = asyncio.Event()
         # Every time succeed in sending message, wait for 0 - 1 second.
         # await asyncio.sleep(random())
@@ -236,7 +237,7 @@ class Client:
         while 1:
             try:
                 self._status = Status(self._f)
-                if isLeafNode(dest_ind,17) == True:
+                if isLeafNode(dest_ind,TOTAL_NODE_COUNT) == True:
                     print("request sent to node "+str(dest_ind)+", primary")
                     await self._session.post(make_url(self._nodes[dest_ind], Client.REQUEST), json=json_data)
                 else:
